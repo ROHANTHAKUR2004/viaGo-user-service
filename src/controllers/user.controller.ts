@@ -174,7 +174,7 @@ export const logoutUser = asyncHandler(async (req: AuthRequest, res: Response) =
   }
 
 
-  res.clearCookie("refreshToken", {
+  res.clearCookie("token", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
