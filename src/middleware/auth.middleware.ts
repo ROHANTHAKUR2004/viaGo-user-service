@@ -18,8 +18,8 @@ const auth = (req: AuthRequest, _res: Response, next: NextFunction) => {
 
     if (authHeader && authHeader.startsWith("Bearer ")) {
       token = authHeader.split(" ")[1];
-    } else if (req.cookies?.accessToken) {
-      token = req.cookies.accessToken;
+    } else if (req.cookies?.token) {
+      token = req.cookies.token;
     }
 
     if (!token) {
