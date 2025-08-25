@@ -132,32 +132,7 @@ export const loginUser = asyncHandler(async (req: Request, res: Response) => {
   res.json(new ApiResponse(200, { token }, "Login Succesfully"));
 });
 
-export const refreshAccessToken = asyncHandler(
-  async (req: Request, res: Response) => {
-    const token = req.cookies.refreshToken;
 
-    if (!token) throw new ApiError(401, "Refresh token missing");
-
-    try {
-      const decoded = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET!) as {
-        id: string;
-      };
-
-      const newAccessToken = signAccessToken(decoded.id);
-
-      return res.json(
-        new ApiResponse(
-          200,
-          { accessToken: newAccessToken },
-          "Access token refreshed"
-        )
-      );
-    } catch (error) {
-      console.log("iserror", error);
-      throw new ApiError(403, "Invalid or expired refresh token");
-    }
-  }
-);
 
 export const logoutUser = asyncHandler(
   async (req: AuthRequest, res: Response) => {
@@ -176,3 +151,13 @@ export const logoutUser = asyncHandler(
     return res.json(new ApiResponse(200, {}, "Logout successful"));
   }
 );
+
+export const forgotPassWord = ()=>{
+
+}
+export const resetPassWord = ()=>{
+
+}
+export const changePassWord = ()=>{
+
+}
