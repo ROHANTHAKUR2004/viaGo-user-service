@@ -8,6 +8,14 @@ export interface IUser extends Document {
   otpExpires?: Date;
   resetPasswordToken?: string;
   resetPasswordExpires?: Date;
+  magicLoginToken?: string;
+  magicLoginExpires?: Date;
+  lastLogin?: Date;
+  loginCount: number;
+  magicLinkRequests: {
+    timestamp: Date;
+    ipAddress: string;
+  }[];
  
 }
 
@@ -50,6 +58,28 @@ const UserSchema = new Schema<IUser>(
     resetPasswordExpires: {
       type: Date,
     },
+    magicLoginToken: {
+      type: String,
+      select: false,
+    },
+    magicLoginExpires: {
+      type: Date,
+      select: false,
+    },
+    lastLogin: {
+      type: Date,
+    },
+    loginCount: {
+      type: Number,
+      default: 0,
+    },
+    magicLinkRequests: [{
+      timestamp: {
+        type: Date,
+        default: Date.now
+      },
+      ipAddress: String
+    }]
   },
   { timestamps: true }
 );
