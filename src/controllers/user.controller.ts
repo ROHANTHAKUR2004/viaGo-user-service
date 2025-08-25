@@ -7,7 +7,7 @@ import { sendEmail } from "../utils/sendEmail";
 import ApiResponse from "../utils/ApiResponse";
 import jwt from "jsonwebtoken";
 
-import { signAccessToken, signRefreshToken } from "../utils/jwt";
+import { signAccessToken } from "../utils/jwt";
 import { AuthRequest } from "../middleware/auth.middleware";
 
 export const registerUser = asyncHandler(
