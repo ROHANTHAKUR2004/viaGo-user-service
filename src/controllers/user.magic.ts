@@ -5,8 +5,8 @@ import User from "../model/user.model";
 import ApiResponse from "../utils/ApiResponse";
 import crypto from "crypto";
 import { sendEmail } from "../utils/sendEmail";
-import { signAccessToken } from "../utils/jwt";
-
+import jwt from 'jsonwebtoken'
+import { JWT_PAYLOAD } from "../middleware/auth.middleware";
 
 export const magicLinkRateLimit = asyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
@@ -113,7 +113,14 @@ export const verifyMagicLink = asyncHandler(
     await user.save();
 
    
-    const authToken = signAccessToken(user.id);
+   const authToken = jwt.sign(
+      {
+        id: user.id,
+      } as JWT_PAYLOAD,
+
+      process.env.JWT_SECRET as string,
+      { expiresIn: parseInt(process.env.JWT_EXPIRE as string) }
+    );
 
     res.cookie("token", authToken, {
       httpOnly: true,

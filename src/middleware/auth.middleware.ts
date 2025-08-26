@@ -1,39 +1,38 @@
-import { Request, Response, NextFunction } from "express";
-import jwt, { JwtPayload as DefaultJwtPayload } from "jsonwebtoken";
-import ApiError from "../utils/ApiError";
+import { NextFunction, Response, Request } from "express";
+import jwt, { JwtPayload as DefaultJwtPayload, JwtPayload } from "jsonwebtoken";
+import ApiError from "../utils/ApiError"; // your custom error class
+import User from "../model/user.model";
 
-export interface JwtPayload extends DefaultJwtPayload {
+
+export interface JWT_PAYLOAD extends JwtPayload {
   id: string;
-  email?: string;
+  
 }
 
-export interface AuthRequest extends Request {
-  user?: JwtPayload;
-}
 
-const auth = (req: AuthRequest, _res: Response, next: NextFunction) => {
+export const isAuthenticated = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const authHeader = req.headers.authorization;
-    let token: string | undefined;
-
-    if (authHeader && authHeader.startsWith("Bearer ")) {
-      token = authHeader.split(" ")[1];
-    } else if (req.cookies?.token) {
-      token = req.cookies.token;
-    }
+    const token = req.cookies?.token || req.headers.authorization?.split(" ")[1];
 
     if (!token) {
-      throw new ApiError(401, "Unauthorized – No token provided");
+      return next(new ApiError(401, "Unauthorized – No token provided"));
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as JWT_PAYLOAD;
+    if(!decoded){
+      return next(new ApiError(401 , "Please Login to Continue your token has been expired "))
+    }
+
+   
     req.user = decoded;
 
     next();
   } catch (error) {
-    console.log(error);
-    throw new ApiError(401, "Unauthorized – Invalid or expired token");
+    console.error("JWT Error:", error);
+    return next(new ApiError(401, "Unauthorized – Invalid or expired token"));
   }
 };
-
-export default auth;

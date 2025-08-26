@@ -1,7 +1,9 @@
 import { Router } from "express";
 import { changePassword, forgotPassWord, loginUser, logoutUser,  registerUser, resendOtp, resetPassWord, verifyEmail } from "../controllers/user.controller";
-import auth from "../middleware/auth.middleware";
+
 import { magicLinkRateLimit, requestMagicLink, verifyMagicLink } from "../controllers/user.magic";
+import { getLinkedAccounts, googleAuth, googleAuthCallback, unlinkGoogleAccount } from "../controllers/social-auth.controller";
+import { isAuthenticated } from "../middleware/auth.middleware";
 
 const userRouter = Router();
 
@@ -17,11 +19,21 @@ userRouter.post("/reset-password/:token", resetPassWord);
 userRouter.post("/changepasword ", changePassword )
 
 
-userRouter.post("/logout", auth, logoutUser);
+userRouter.post("/logout", isAuthenticated, logoutUser);
 
 
 userRouter.post("/magic-link/request", magicLinkRateLimit, requestMagicLink);
 userRouter.post("/magic-link/verify", verifyMagicLink);
 
+
+userRouter.get("/auth/google", googleAuth);
+
+
+userRouter.get("/auth/google/callback", googleAuthCallback);
+
+userRouter.post("/auth/unlink/google", isAuthenticated, unlinkGoogleAccount);
+
+
+userRouter.get("/auth/linked-accounts", isAuthenticated, getLinkedAccounts);
 
 export default userRouter;

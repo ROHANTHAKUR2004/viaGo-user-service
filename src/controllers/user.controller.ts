@@ -8,9 +8,7 @@ import ApiResponse from "../utils/ApiResponse";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
 
-import { signAccessToken } from "../utils/jwt";
-import { AuthRequest } from "../middleware/auth.middleware";
-
+import {  JWT_PAYLOAD } from "../middleware/auth.middleware";
 
 export const registerUser = asyncHandler(
   async (req: Request, res: Response, next: NextFunction) => {
@@ -123,7 +121,13 @@ export const loginUser = asyncHandler(async (req: Request, res: Response) => {
   const ismatch = await bcrypt.compare(password, user.password);
   if (!ismatch) throw new ApiError(401, "invalid password");
 
-  const token = signAccessToken(user.id);
+  const token = jwt.sign(
+    {
+      id: user.id,
+    } as JWT_PAYLOAD,
+    process.env.JWT_SECRET as string,
+    { expiresIn: parseInt(process.env.JWT_EXPIRE as string) }
+  );
 
   res.cookie("token", token, {
     httpOnly: true,
@@ -134,10 +138,8 @@ export const loginUser = asyncHandler(async (req: Request, res: Response) => {
   res.json(new ApiResponse(200, { token }, "Login Succesfully"));
 });
 
-
-
 export const logoutUser = asyncHandler(
-  async (req: AuthRequest, res: Response) => {
+  async (req: Request, res: Response) => {
     const userId = req.user?.id;
 
     if (!userId) {
@@ -154,103 +156,111 @@ export const logoutUser = asyncHandler(
   }
 );
 
+export const forgotPassWord = asyncHandler(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { email } = req.body;
 
-export const forgotPassWord = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-  const { email } = req.body;
+    if (!email) {
+      throw new ApiError(400, "Email is required");
+    }
 
-  if (!email) {
-    throw new ApiError(400, "Email is required");
-  }
+    const user = await User.findOne({ email });
+    if (!user?.isVerified || !user) {
+      return res.json(
+        new ApiResponse(
+          200,
+          null,
+          "User not verified or does not exist, link has been sent"
+        )
+      );
+    }
 
-  const user = await User.findOne({ email });
-  if (!user?.isVerified || !user) {
-    return res.json(new ApiResponse(200, null, "User not verified or does not exist, link has been sent"));
-  }
+    const resetToken = crypto.randomBytes(32).toString("hex");
 
-  const resetToken = crypto.randomBytes(32).toString("hex");
+    const resetPasswordToken = crypto
+      .createHash("sha256")
+      .update(resetToken)
+      .digest("hex");
 
-  const resetPasswordToken = crypto.createHash("sha256").update(resetToken).digest("hex");
+    const resetPasswordExpires = new Date(Date.now() + 15 * 60 * 1000);
 
-  
-  const resetPasswordExpires = new Date(Date.now() + 15 * 60 * 1000);
+    user.resetPasswordToken = resetPasswordToken;
+    user.resetPasswordExpires = resetPasswordExpires;
 
-  user.resetPasswordToken = resetPasswordToken;
-  user.resetPasswordExpires = resetPasswordExpires;
+    await user.save();
 
-  await user.save();
+    try {
+      const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
 
-  try {
-    const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
-
-    await sendEmail({
-      to: email,
-      subject: "Password Reset Request",
-      text: `ink has been sent ${resetToken}`,   
-      html: `
+      await sendEmail({
+        to: email,
+        subject: "Password Reset Request",
+        text: `ink has been sent ${resetToken}`,
+        html: `
         <p>You requested a password reset</p>
         <p>Click below link to reset your password:</p>
         <a href="${resetUrl}" target="_blank">Reset Password</a>
         <p>This link expires in 15 minutes.</p>
       `,
+      });
+
+      res.json(
+        new ApiResponse(
+          200,
+          null,
+          "If the email exists, a reset link has been sent"
+        )
+      );
+    } catch (error) {
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpires = undefined;
+      await user.save();
+
+      throw new ApiError(500, "Email could not be sent");
+    }
+  }
+);
+
+export const resetPassWord = asyncHandler(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { token } = req.params;
+    const { newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      throw new ApiError(400, "Token and new password are required");
+    }
+
+    if (newPassword.length < 6) {
+      throw new ApiError(400, "Password must be at least 6 characters");
+    }
+
+    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
+    const user = await User.findOne({
+      resetPasswordToken: hashedToken,
+      resetPasswordExpires: { $gt: new Date() },
     });
 
-    res.json(
-      new ApiResponse(
-        200,
-        null,
-        "If the email exists, a reset link has been sent"
-      )
-    );
-  } catch (error) {
+    if (!user || !user.isVerified) {
+      throw new ApiError(400, "Token is invalid or expired");
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
-    await user.save();   
 
-    throw new ApiError(500, "Email could not be sent");
+    await user.save();
+
+    res.json(
+      new ApiResponse(200, null, "Password has been reset successfully")
+    );
   }
-});
-
-
-export const resetPassWord = asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-  const { token } = req.params;
-  const { newPassword } = req.body;
-
-  if (!token || !newPassword) {
-    throw new ApiError(400, "Token and new password are required");
-  }
-
-  if (newPassword.length < 6) {
-    throw new ApiError(400, "Password must be at least 6 characters");
-  }
-
-  const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
-
-  const user = await User.findOne({
-    resetPasswordToken: hashedToken,
-    resetPasswordExpires: { $gt: new Date() },
-  });
-
-  if (!user || !user.isVerified) {
-    throw new ApiError(400, "Token is invalid or expired");
-  }
-
-
-  const hashedPassword = await bcrypt.hash(newPassword, 10);
-  user.password = hashedPassword;
-
-  user.resetPasswordToken = undefined;
-  user.resetPasswordExpires = undefined;
-
-  await user.save();
-
-  res.json(new ApiResponse(200, null, "Password has been reset successfully"));
-});
-
-
-
+);
 
 export const changePassword = asyncHandler(
-  async (req: AuthRequest, res: Response, next: NextFunction) => {
+  async (req: Request, res: Response, next: NextFunction) => {
     const { currentPassword, newPassword } = req.body;
     const userId = req.user?.id;
 
@@ -275,13 +285,15 @@ export const changePassword = asyncHandler(
     }
     const isSamePassword = await bcrypt.compare(newPassword, user.password);
     if (isSamePassword) {
-      throw new ApiError(400, "New password must be different from current password");
+      throw new ApiError(
+        400,
+        "New password must be different from current password"
+      );
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     user.password = hashedPassword;
     await user.save();
-
 
     res.json(new ApiResponse(200, null, "Password changed successfully"));
   }
