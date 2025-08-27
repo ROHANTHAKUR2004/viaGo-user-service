@@ -26,7 +26,7 @@ userRouter.post("/magic-link/request", magicLinkRateLimit, requestMagicLink);
 userRouter.post("/magic-link/verify", verifyMagicLink);
 
 
-// googel auth
+// googel auth routes
 userRouter.get("/auth/google", googleAuth);
 
 
